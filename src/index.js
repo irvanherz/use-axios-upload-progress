@@ -1,17 +1,43 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import React, { useState, useRef, useMemo } from 'react';
 
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
-);
+function useUploadProgress() {
+  const [lastProgressEvent, setLastProgressEvent] = useState()
+  const [currentProgressEvent, setCurrentProgressEvent] = useState()
+  const currentProgressEventRef = useRef()
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+  currentProgressEventRef.current = currentProgressEvent
+
+  const currentProgress = useMemo(() => {
+    const loaded = currentProgressEvent?.loaded || 0
+    const total = currentProgressEvent?.total || 0
+    return total ? Math.round((loaded * 100) / total) : 0
+  }, [currentProgressEvent])
+
+  const resetProgress = () => {
+    setLastProgressEvent(undefined)
+    setCurrentProgressEvent(undefined)
+  }
+
+  const currentSpeed = useMemo(() => {
+    if (!lastProgressEvent) return 0
+    const d = ((currentProgressEvent?.timeStamp || 0) - (lastProgressEvent?.timeStamp || 0)) / 1000
+    const bytes = (currentProgressEvent?.loaded || 0) - (lastProgressEvent?.loaded || 0)
+    return d ? (bytes / d) : 0
+  }, [currentProgressEvent, lastProgressEvent])
+
+  const currentETA = useMemo(() => {
+    if (!currentSpeed) return 0
+    const remainingBytes = (currentProgressEvent?.total || 0) - (currentProgressEvent?.loaded || 0)
+    return remainingBytes / currentSpeed
+  }, [currentProgressEvent, currentSpeed])
+
+  const handleProgress = progressEvent => {
+    console.log(progressEvent);
+    setLastProgressEvent(currentProgressEventRef.current)
+    setCurrentProgressEvent(progressEvent)
+  }
+
+  return [handleProgress, currentProgress, currentSpeed, currentETA, resetProgress];
+}
+
+export default useUploadProgress
