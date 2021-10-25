@@ -32,7 +32,7 @@ function useUploadProgress() {
   }, [currentProgressEvent, currentSpeed])
 
   const handleProgress = progressEvent => {
-    console.log(progressEvent);
+    // console.log(progressEvent);
     setLastProgressEvent(currentProgressEventRef.current)
     setCurrentProgressEvent(progressEvent)
   }
