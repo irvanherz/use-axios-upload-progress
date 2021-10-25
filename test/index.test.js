@@ -1,10 +1,26 @@
 import { act, renderHook } from '@testing-library/react-hooks'
 import useUploadProgress from '../src/index'
 
+function generateRandomProgress(total, loaded) {
+  const minSize = 1000
+  const maxSize = 5000
+
+  loaded = loaded + Math.random() * (maxSize - minSize) + minSize
+
+  if (loaded > total) {
+    loaded = total
+  }
+
+  return {
+    total: total,
+    loaded: loaded,
+    timeStamp: Date.now(),
+  }
+}
+
 test('should update current progress', () => {
-  let sizeTotal = 10000
+  let sizeTotal = 100000
   let sizeLoaded = 0
-  let sizeUpdate = 500
   let progress = 0
 
   const { result } = renderHook(() => useUploadProgress())
@@ -12,17 +28,17 @@ test('should update current progress', () => {
   while (sizeLoaded < sizeTotal) {
     const [handleProgress] = result.current
 
-    // update loaded value
-    sizeLoaded = sizeLoaded + sizeUpdate
+    // generate random progress
+    const randomProgress = generateRandomProgress(sizeTotal, sizeLoaded)
+
+    // update loaded size
+    sizeLoaded = randomProgress.loaded
 
     // calculate progress
     progress = Math.round((sizeLoaded * 100) / sizeTotal)
 
     act(() => {
-      handleProgress({
-        total: sizeTotal,
-        loaded: sizeLoaded,
-      })
+      handleProgress(randomProgress)
     })
 
     const [, currentProgress] = result.current
@@ -33,54 +49,95 @@ test('should update current progress', () => {
 })
 
 test('should update current speed', async () => {
-  function generateRandomProgress(total, loaded) {
-    const minSize = 1000
-    const maxSize = 5000
+  jest.useFakeTimers()
 
-    loaded = loaded + Math.random() * (maxSize - minSize) + minSize
-
-    if (loaded > total) {
-      loaded = total
-    }
-
-    return {
-      total: total,
-      loaded: loaded,
-      timeStamp: Date.now(),
-    }
-  }
-
-  let sizeTotal = 10000
+  let sizeTotal = 100000
   let sizeLoaded = 0
   let timestamp = Date.now()
+  let progress = 0
   let speed = 0
 
-  const { result, waitFor } = renderHook(() => useUploadProgress())
+  const { result } = renderHook(() => useUploadProgress())
 
   while (sizeLoaded < sizeTotal) {
-    await waitFor(function () {
-      const [handleProgress] = result.current
+    jest.advanceTimersByTime(1000)
 
-      // generate random progress
-      const randomProgress = generateRandomProgress(sizeTotal, sizeLoaded)
+    const [handleProgress] = result.current
 
+    // generate random progress
+    const randomProgress = generateRandomProgress(sizeTotal, sizeLoaded)
+
+    if (progress) {
       // calculate current speed
       const size = randomProgress.loaded - sizeLoaded
       const duration = (randomProgress.timeStamp - timestamp) / 1000
       speed = size / duration
+    }
 
-      // update loaded size and timestamp
-      sizeLoaded = randomProgress.loaded
-      timestamp = randomProgress.timeStamp
+    // update loaded size and timestamp
+    sizeLoaded = randomProgress.loaded
+    timestamp = randomProgress.timeStamp
 
-      act(() => {
-        handleProgress(randomProgress)
-      })
+    // calculate progress
+    progress = Math.round((sizeLoaded * 100) / sizeTotal)
 
-      const [, , currentSpeed] = result.current
+    act(() => {
+      handleProgress(randomProgress)
+    })
 
-      // check current speed
-      expect(currentSpeed).toBe(speed)
-    }, { interval: 1000 })
+    const [, , currentSpeed] = result.current
+
+    // check current speed
+    expect(currentSpeed).toBe(speed)
+  }
+})
+
+test('should update current ETA', async () => {
+  jest.useFakeTimers()
+
+  let sizeTotal = 100000
+  let sizeLoaded = 0
+  let timestamp = Date.now()
+  let progress = 0
+  let speed = 0
+  let ETA = 0
+
+  const { result } = renderHook(() => useUploadProgress())
+
+  while (sizeLoaded < sizeTotal) {
+    jest.advanceTimersByTime(1000)
+
+    const [handleProgress] = result.current
+
+    // generate random progress
+    const randomProgress = generateRandomProgress(sizeTotal, sizeLoaded)
+
+    if (progress) {
+      // calculate current speed
+      const size = randomProgress.loaded - sizeLoaded
+      const duration = (randomProgress.timeStamp - timestamp) / 1000
+      speed = size / duration
+    }
+
+    // update loaded size and timestamp
+    sizeLoaded = randomProgress.loaded
+    timestamp = randomProgress.timeStamp
+
+    // calculate progress
+    progress = Math.round((sizeLoaded * 100) / sizeTotal)
+
+    if (speed) {
+      // calculate current ETA
+      ETA = (sizeTotal - sizeLoaded) / speed
+    }
+
+    act(() => {
+      handleProgress(randomProgress)
+    })
+
+    const [, , , currentETA] = result.current
+
+    // check current ETA
+    expect(currentETA).toBe(ETA)
   }
 })
